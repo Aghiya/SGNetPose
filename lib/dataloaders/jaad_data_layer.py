@@ -45,24 +45,6 @@ class JAADDataLayer(data.Dataset):
         
         self.data = self.get_data(beh_seq, **traj_model_opts)
         
-        # with open(f"/home/aghiya/SGNet.pytorch/lib/dataloaders/jaad_{self.split}_2.pkl", 'rb') as f:
-            # self.data = pickle.load(f)
-            
-        # # shuffle data
-        # list_length = len(self.data['obs_image'])
-        # shuffle_order = list(range(list_length))
-        # random.seed(self.args.seed)
-        # random.shuffle(shuffle_order)
-        # keys_to_shuffle = ['obs_image', 'obs_pid', 'gt_mean', 'gt_std', 'obs_bbox', 'pred_bbox', 'obs_pose', 'obs_angle']
-        # # pdb.set_trace()
-        # for key in keys_to_shuffle:
-            # self.data[key] = [self.data[key][i] for i in shuffle_order]
-        
-        # with open(f'./jaad_{self.split}.pkl', 'wb') as f:
-            # pickle.dump(self.data, f)
-        
-        # pdb.set_trace()
-        
     def __getitem__(self, index):
         obs_bbox = torch.FloatTensor(self.data['obs_bbox'][index])
         pred_bbox = torch.FloatTensor(self.data['pred_bbox'][index])
@@ -75,20 +57,13 @@ class JAADDataLayer(data.Dataset):
         
         obs_bbox_unnormed = torch.FloatTensor(self.data['obs_bbox_unnormed'][index])
         
-        obs_pid = self.data['obs_pid'][index][-1]
-        
-        # pred_bbox_unnormed = torch.FloatTensor(self.data['pred_bbox_unnormed'][index])
-        
-        # obs_center = torch.FloatTensor(self.data['obs_center'][index])
-        # pred_center = torch.FloatTensor(self.data['pred_center'][index])
+        obs_pid = self.data['obs_pid'][index][-1]   
             
         ret = {'input_x':obs_bbox,
                'target_y':pred_bbox,
                'unnormed':obs_bbox_unnormed,
                'input_x_pose':obs_pose,
                'input_x_angle':obs_angle,
-               # 'input_x_center':obs_center,
-               # 'target_y_center':pred_center,
                'cur_image_file':cur_image_file, 
                'gt_mean':gt_mean, 
                'gt_std':gt_std,
@@ -133,7 +108,6 @@ class JAADDataLayer(data.Dataset):
         d['flow'] = []
         d['pose'] = dataset['pose']
         d['angle'] = dataset['angle']
-        # d['center'] = dataset['center']
         
         #  Sample tracks from sequneces
         for k in d.keys():
@@ -143,9 +117,6 @@ class JAADDataLayer(data.Dataset):
                             range(0, len(track) - seq_length + 1, overlap_stride)])
             d[k] = tracks
 
-        # augmented_dict = self.augment(d)
-        # for k in augmented_dict.keys():
-            # d[k] += augmented_dict[k]
         #  Normalize tracks using FOL paper method, 
         d['bbox_unnormed'] = d['bbox']
         d['bbox'] = self.convert_normalize_bboxes(d['bbox'], d['resolution'], 
@@ -251,19 +222,10 @@ class JAADDataLayer(data.Dataset):
                 std_list = []
                 observe_list = []
                 target_list = []
-                target_unnormed_list = []
                 target_center_list = []
-                pred_slices['center'] = []
-                pred_slices['bbox_unnormed'] = []
                 for sample in data_tracks[k]:
-                # for sample, center_sample in zip(data_tracks[k], data_tracks['center']):
-                    target, target_unnormed = self.get_target(sample,start,end,observe_length,predict_length)
+                    target = self.get_target(sample,start,end,observe_length,predict_length)
                     target_list.append(target)
-                    target_unnormed_list.append(target_unnormed)
-                    
-                    # target_center = self.get_target(np.array(center_sample),start,end,observe_length,predict_length, is_center=True)
-                    # target_center_list.append(target_center)
-                    
                     observe = sample[down-1:observe_length:down]
                     observe_list.append(observe)
                     mean_np = np.zeros((observe_length, 4))
@@ -278,25 +240,17 @@ class JAADDataLayer(data.Dataset):
                 obs_slices['gt_mean'].extend(mean_list)
                 obs_slices['gt_std'].extend(std_list)
                 pred_slices[k].extend(target_list)
-                # pred_slices['bbox_unnormed'].extend(target_unnormed_list)
-                
-                # pred_slices['center'].extend(target_center_list)
-                # pdb.set_trace()
             else:
                 obs_slices[k].extend([sample[down-1:observe_length:down] for sample in data_tracks[k]])
                 
         ret =  {'obs_image': obs_slices['image'],
                 'obs_pid': obs_slices['pid'],
-                # 'obs_resolution': obs_slices['resolution'],
                 'obs_pose': obs_slices['pose'],
                 'obs_angle': obs_slices['angle'],
-                # 'obs_center': obs_slices['center'],
-                # 'pred_center': pred_slices['center'],
                 'gt_mean': obs_slices['gt_mean'],
                 'gt_std': obs_slices['gt_std'],
                 'pred_image': pred_slices['image'],
                 'pred_pid': pred_slices['pid'],
-                # 'pred_resolution': pred_slices['resolution'],
                 'obs_bbox': np.array(obs_slices['bbox']),
                 'flow_input': obs_slices['flow'],
                 'pred_bbox': np.array(pred_slices['bbox']), 
@@ -307,7 +261,7 @@ class JAADDataLayer(data.Dataset):
         return ret
 
 
-    def get_target(self, session, start, end, observe_length, predict_length, is_center=False):
+    def get_target(self, session, start, end, observe_length, predict_length):
         '''
         Given the input session and the start and end time of the input clip, find the target
         TARGET FOR PREDICTION IS THE CHANGES IN THE FUTURE!!
@@ -320,38 +274,17 @@ class JAADDataLayer(data.Dataset):
                     The target is the change of the values. e.g. target of yaw is \delta{\theta}_{t0,tn} 
         ''' 
         target = np.zeros((observe_length, predict_length, session.shape[-1]))
-        target_unnormed = np.zeros((observe_length, predict_length, session.shape[-1]))
         for i, target_start in enumerate(range(start, end)):
             '''the target of time t is the change of bbox/ego motion at times [t+1,...,t+5}'''
             target_start = target_start + 1
             try:
-                if is_center:
-                    target[i,:,:] = np.asarray(session[target_start:target_start+predict_length,:])
-                else:
-                    target[i,:,:] = np.asarray(session[target_start:target_start+predict_length,:] - 
+                target[i,:,:] = np.asarray(session[target_start:target_start+predict_length,:] - 
                                            session[target_start-1:target_start,:])
                                            
-                target_unnormed[i,:,:] = np.asarray(session[target_start:target_start+predict_length,:] - 
-                                           session[target_start-1:target_start,:])
             except:
                 print("segment start: ", start)
                 print("sample start: ", target_start)
                 print("segment end: ", end)
                 print(session.shape)
                 raise ValueError()
-        return target, target_unnormed
-        
-    def augment(self, data_dict):
-    
-        # flow key is empty, so ignored
-        keys = ['bbox', 'image', 'pid', 'resolution']
-        augment_dict = {k: [] for k in keys}
-        # pdb.set_trace()
-        for i in range(len(data_dict['image'])):
-            for k in keys:
-                if k == 'bbox':
-                    augmented_list = [[1920 - val if j % 2 == 0 else val for j, val in enumerate(bbox)] for bbox in data_dict[k][i]]
-                else:
-                    augmented_list = data_dict[k][i]
-                augment_dict[k].append(augmented_list)
-        return augment_dict
+        return target

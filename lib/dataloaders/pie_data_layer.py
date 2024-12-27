@@ -40,15 +40,11 @@ class PIEDataLayer(data.Dataset):
         # traj_model_opts['enc_input_type'].extend(['obd_speed', 'heading_angle'])
         # traj_model_opts['prediction_type'].extend(['obd_speed', 'heading_angle'])
         # beh_seq = imdb.generate_data_trajectory_sequence(self.split, **traj_data_opts)
-        # augment=False
         imdb = CustomDataLayer(self.args.seed)
         beh_seq = imdb.get_split(split, traj_model_opts['observe_length'] + traj_model_opts['predict_length'], augment_x=False, augment_y=False)
         
         self.data = self.get_traj_data(beh_seq, **traj_model_opts)
-        
-        # with open(f'/home/aghiya/SGNet.pytorch/lib/dataloaders/pie_{self.split}.pkl', 'wb') as f:
-            # pickle.dump(self.data, f)
-        
+
     def __getitem__(self, index):
         obs_bbox = torch.FloatTensor(self.data['obs_bbox'][index])
         pred_bbox = torch.FloatTensor(self.data['pred_bbox'][index])
