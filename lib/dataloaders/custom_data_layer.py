@@ -9,10 +9,9 @@ import fnmatch
 warnings.filterwarnings("ignore")
 
 
-
 class CustomDataLayer():
     def __init__(self, seed):
-        self.base_dir = '/home/aghiya'
+        self.base_dir = '/home/aghiya' # directory where jaadpie_pose is located
         self.data_dict_keys = ['image', 'resolution', 'pid', 'bbox', 'center', 'skeleton_unnormed', 'skeleton', 'angle']
         self.seed = seed
         
@@ -523,17 +522,17 @@ class CustomDataLayer():
 class JAAD(CustomDataLayer):
     def __init__(self, seed):
         super().__init__(seed)
-        self.train_path = self.base_dir + '/jaadpie_data/sequences/jaad_all_all/train/combined'
-        self.test_path = self.base_dir + '/jaadpie_data/sequences/jaad_all_all/test/combined'
-        self.val_path = self.base_dir + '/jaadpie_data/sequences/jaad_all_all/val/combined'
-        self.skeleton_dir = self.base_dir + '/jaadpie_data/skeleton/jaad'
+        self.train_path = self.base_dir + '/jaadpie_pose/sequences/jaad_all_all/train/combined'
+        self.test_path = self.base_dir + '/jaadpie_pose/sequences/jaad_all_all/test/combined'
+        self.val_path = self.base_dir + '/jaadpie_pose/sequences/jaad_all_all/val/combined'
+        self.skeleton_dir = self.base_dir + '/jaadpie_pose/skeleton/jaad'
         self.is_pie = False
 
 class PIE(CustomDataLayer):
     def __init__(self, seed):
         super().__init__(seed)
-        self.train_path = self.base_dir + '/jaadpie_data/sequences/pie/train/combined'
-        self.test_path = self.base_dir + '/jaadpie_data/sequences/pie/test/combined'
-        self.val_path = self.base_dir + '/jaadpie_data/sequences/pie/val/combined'
-        self.skeleton_dir = self.base_dir + '/jaadpie_data/skeleton/pie'
+        self.train_path = self.base_dir + '/jaadpie_pose/sequences/pie/train/combined'
+        self.test_path = self.base_dir + '/jaadpie_pose/sequences/pie/test/combined'
+        self.val_path = self.base_dir + '/jaadpie_pose/sequences/pie/val/combined'
+        self.skeleton_dir = self.base_dir + '/jaadpie_pose/skeleton/pie'
         self.is_pie = True
