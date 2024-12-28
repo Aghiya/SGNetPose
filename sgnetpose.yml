@@ -1,4 +1,4 @@
-name: sgnet
+name: sgnetpose
 channels:
   - pytorch
   - conda-forge
@@ -177,4 +177,3 @@ dependencies:
       - wheel==0.37.1
       - widgetsnbextension==3.6.9
       - zipp==3.6.0
-prefix: /home/aghiya/miniconda3/envs/sgnet
