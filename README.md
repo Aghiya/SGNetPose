@@ -18,5 +18,7 @@ https://github.com/Aghiya/SGNetPose/blob/3e2f4914b387e8d6a1ccabdf5a445cb4fddf8ed
 ```
 conda env create -f sgnetpose.yml
 ```
-6. The [1_jaad.sh](1_jaad.sh) and [2_pie.sh](2_pie.sh) scripts are set up to make the process of running the model easy. They create timestamped logs and start the process in screens so that disconnecting from the server or losing connection doesn't kill the process. You can also modify hyperparameter values like the batch size, number of epochs, and the seed.
+6. The [1_jaad.sh](1_jaad.sh) and [2_pie.sh](2_pie.sh) scripts are set up to make the process of running the model easy. They create timestamped logs and start the process in screens so that disconnecting from the server or losing connection doesn't kill the process. You can also modify hyperparameter values like the batch size, number of epochs, and the seed. For your part, you will need to modify the conda type if you aren't using miniconda3. Also, verify the following directory paths.
+
+
 
