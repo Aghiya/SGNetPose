@@ -14,7 +14,7 @@ import pdb
 def main(args):
 
     for arg, value in vars(args).items():
-        if arg in ['epochs', 'batch_size', 'enc_steps', 'dec_steps', 'input_dim', 'pred_dim', 'seed']:
+        if arg in ['epochs', 'batch_size', 'seed', 'pose_data']:
             print(f"{arg}: {value}")
 
 

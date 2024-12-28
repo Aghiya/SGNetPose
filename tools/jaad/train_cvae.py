@@ -26,7 +26,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 def main(args):
 
     for arg, value in vars(args).items():
-        if arg in ['epochs', 'batch_size', 'enc_steps', 'dec_steps', 'input_dim', 'pred_dim', 'seed', 'pose_data']:
+        if arg in ['epochs', 'batch_size', 'seed', 'pose_data']:
             print(f"{arg}: {value}")
 
     this_dir = osp.dirname(__file__)
