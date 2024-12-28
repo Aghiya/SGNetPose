@@ -14,4 +14,5 @@ def parse_base_args():
     parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--phases', default=['train', 'test'], type=list)
     parser.add_argument('--shuffle', default=True, type=bool)
+    parser.add_argument('--pose_data', default='skeleton', type=str)
     return parser

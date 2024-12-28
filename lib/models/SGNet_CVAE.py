@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from .feature_extractor import build_feature_extractor, JAADPoseFeatureExtractor, JAADAngleFeatureExtractor
+from .feature_extractor import build_feature_extractor, PoseFeatureExtractor
 from .bitrap_np import BiTraPNP
 import torch.nn.functional as F
 
@@ -16,11 +16,11 @@ class SGNet_CVAE(nn.Module):
         self.dataset = args.dataset
         self.dropout = args.dropout
         self.feature_extractor = build_feature_extractor(args)
-        self.pose_feature_extractor = JAADPoseFeatureExtractor(args)
-        # self.angle_feature_extractor = JAADAngleFeatureExtractor(args)
+        self.pose_feature_extractor = PoseFeatureExtractor(args)
         self.pred_dim = args.pred_dim
         self.K = args.K
         self.map = False
+        self.pose_data = args.pose_data
         if self.dataset in ['JAAD','PIE']:
             # the predict shift is in pixel
             # self.pred_dim = 4
@@ -69,39 +69,10 @@ class SGNet_CVAE(nn.Module):
         self.goal_drop = nn.Dropout(self.dropout)
         self.dec_drop = nn.Dropout(self.dropout)
         self.addl_drop = nn.Dropout(.1)
-        # self.addl_drop_2 = nn.Dropout(.1)
-        reduced_size = 4
-        # seq 1 - relu
-        # seq 2 - relu, lin, relu
-        # seq 3 - lin
-        # seq 4 - lin reduced to //4
-        # seq 5 - lin reduced to //6
-        # seq 6 - lin reduced to //8
-        # seq 7 - lin reduced to //2
-        # seq 8 - relu, lin (already reduced to 128 prior)
-        self.addl_process = nn.Sequential(nn.ReLU(inplace=True)
-                                          # nn.Linear(self.hidden_size, self.hidden_size//reduced_size)
-                                          # ,nn.ReLU(inplace=True)
-                                          # ,nn.Linear(self.hidden_size, self.hidden_size)
-                                          # ,nn.ReLU(inplace=True)
-                                          )
-        # self.addl_process_2 = nn.Sequential( nn.ReLU(inplace=True)
-                                          # nn.Linear(self.hidden_size, self.hidden_size//reduced_size)
-                                          # ,nn.ReLU(inplace=True)
-                                          # ,nn.Linear(self.hidden_size, self.hidden_size)
-                                          # ,nn.ReLU(inplace=True)
-        #                                   )
-        self.addl_cell = nn.GRUCell(self.hidden_size//reduced_size, self.hidden_size//reduced_size)
-        # self.addl_cell_2 = nn.GRUCell(self.hidden_size//reduced_size, self.hidden_size//reduced_size)
+        self.addl_cell = nn.GRUCell(self.hidden_size//4, self.hidden_size//4)
         self.traj_enc_cell = nn.GRUCell(self.hidden_size + self.hidden_size//4, self.hidden_size)
-        # self.traj_enc_cell = nn.GRUCell(2 * self.hidden_size + self.hidden_size//4, self.hidden_size)
-        # self.traj_enc_cell = nn.GRUCell(3 * self.hidden_size + self.hidden_size//4, self.hidden_size)
         self.goal_cell = nn.GRUCell(self.hidden_size//4, self.hidden_size//4)
-        # self.dec_cell = nn.GRUCell(self.hidden_size + self.hidden_size//4, self.hidden_size)
-        # self.dec_addl_cell = nn.GRUCell(self.hidden_size, self.hidden_size)
-        # self.dec_cell = nn.GRUCell(2 * self.hidden_size + self.hidden_size//4, self.hidden_size)
-        self.dec_cell = nn.GRUCell(self.hidden_size + self.hidden_size//4 + self.hidden_size//reduced_size, self.hidden_size)
-        # self.dec_cell = nn.GRUCell(3 * self.hidden_size + self.hidden_size//4, self.hidden_size)
+        self.dec_cell = nn.GRUCell(self.hidden_size + self.hidden_size//4 + self.hidden_size//4, self.hidden_size)
     
     def SGE(self, goal_hidden):
         # initial goal input with zero
@@ -125,9 +96,7 @@ class SGNet_CVAE(nn.Module):
         goal_for_enc = torch.bmm(enc_attn, goal_for_enc).squeeze(1)
         return goal_for_dec, goal_for_enc, goal_traj
 
-    # def cvae_decoder(self, dec_hidden, goal_for_dec, traj_angle_input, traj_pose_input):
     def cvae_decoder(self, dec_hidden, goal_for_dec, addl_data):
-    # def cvae_decoder(self, dec_hidden, goal_for_dec):
         batch_size = dec_hidden.size(0)
        
         K = dec_hidden.shape[1]
@@ -147,7 +116,6 @@ class SGNet_CVAE(nn.Module):
             
             # make 20 copies of data, then reshape to [x, 512]
             
-            # addl_data_2 = torch.cat((traj_angle_input, traj_pose_input), dim=-1).unsqueeze(1).repeat_interleave(20, dim=0)
             addl_data_2 = addl_data.unsqueeze(1).repeat_interleave(20, dim=0)
             addl_data_2 = addl_data_2.view(-1, addl_data_2.shape[-1])
             dec_input = torch.cat((dec_input, addl_data_2), dim=-1)
@@ -159,9 +127,7 @@ class SGNet_CVAE(nn.Module):
             dec_traj[:,dec_step,:,:] = batch_traj
         return dec_traj
 
-    # def encoder(self, raw_inputs, raw_targets, traj_input, traj_angle_input, traj_pose_input, flow_input=None, start_index = 0):
     def encoder(self, raw_inputs, raw_targets, traj_input, addl_input, flow_input=None, start_index = 0):
-    # def encoder(self, raw_inputs, raw_targets, traj_input, flow_input=None, start_index = 0):
         # initial output tensor
         all_goal_traj = traj_input.new_zeros(traj_input.size(0), self.enc_steps, self.dec_steps, self.pred_dim)
         all_cvae_dec_traj = traj_input.new_zeros(traj_input.size(0), self.enc_steps, self.dec_steps, self.K, self.pred_dim)
@@ -170,32 +136,17 @@ class SGNet_CVAE(nn.Module):
         # initial encoder hidden with zeros
         traj_enc_hidden = traj_input.new_zeros((traj_input.size(0), self.hidden_size))
         
-        # goal_for_addl_enc = addl_input.new_zeros((addl_input.size(0), self.hidden_size//4))
-        # initial encoder hidden with zeros
-        # traj_enc_addl_hidden = addl_input.new_zeros((addl_input.size(0), self.hidden_size))
         
         total_probabilities = traj_input.new_zeros((traj_input.size(0), self.enc_steps, self.K))
         total_KLD = 0
         for enc_step in range(start_index, self.enc_steps):
-            # pdb.set_trace()
-            
-            # traj_enc_addl_hidden = self.traj_enc_addl_cell(self.enc_drop(torch.cat((addl_input[:,enc_step,:], goal_for_addl_enc), 1)), traj_enc_addl_hidden)
-            # traj_enc_hidden = self.traj_enc_cell(self.enc_drop(torch.cat((traj_input[:,enc_step,:], traj_enc_addl_hidden, goal_for_enc), 1)), traj_enc_hidden)
-            
-            # traj_enc_hidden = self.traj_enc_cell(self.enc_drop(torch.cat((traj_input[:,enc_step,:], addl_input[:,enc_step,:], goal_for_enc), 1)), traj_enc_hidden)
+
             addl_data_2 = self.addl_cell(self.addl_drop(addl_input[:, enc_step, :]))
-            # pose_data = self.addl_cell(self.addl_drop(traj_pose_input[:,enc_step,:]))
-            # angle_data = self.addl_cell_2(self.addl_drop_2(traj_angle_input[:,enc_step,:]))
-            # print(addl_data_2.shape)
+
             traj_enc_hidden = self.traj_enc_cell(self.enc_drop(torch.cat((traj_input[:,enc_step,:], goal_for_enc), 1)), traj_enc_hidden)
-            
-            # traj_enc_hidden = self.traj_enc_cell(self.enc_drop(torch.cat((traj_input[:,enc_step,:], traj_angle_input[:,enc_step,:], traj_pose_input[:,enc_step,:], goal_for_enc), 1)), traj_enc_hidden)
-            
-            # pdb.set_trace()
-            
+           
             enc_hidden = traj_enc_hidden
-            # enc_hidden = torch.cat((traj_enc_hidden, traj_enc_addl_hidden), dim=-1)
-            
+          
             goal_hidden = self.enc_to_goal_hidden(enc_hidden)
             # print(enc_hidden.shape, goal_hidden.shape)
             goal_for_dec, goal_for_enc, goal_traj = self.SGE(goal_hidden)
@@ -215,44 +166,26 @@ class SGNet_CVAE(nn.Module):
                 map_input = flow_input
                 cvae_dec_hidden = (cvae_dec_hidden + map_input.unsqueeze(1))/2
             # pdb.set_trace()
-            # all_cvae_dec_traj[:,enc_step,:,:,:] = self.cvae_decoder(cvae_dec_hidden, goal_for_dec, traj_angle_input[:,enc_step,:], traj_pose_input[:,enc_step,:])
-            # all_cvae_dec_traj[:,enc_step,:,:,:] = self.cvae_decoder(cvae_dec_hidden, goal_for_dec, angle_data, pose_data)
             all_cvae_dec_traj[:,enc_step,:,:,:] = self.cvae_decoder(cvae_dec_hidden, goal_for_dec, addl_data_2)
-            # all_cvae_dec_traj[:,enc_step,:,:,:] = self.cvae_decoder(cvae_dec_hidden, goal_for_dec, addl_input[:,enc_step,:])
-            # all_cvae_dec_traj[:,enc_step,:,:,:] = self.cvae_decoder(cvae_dec_hidden, goal_for_dec, traj_enc_addl_hidden)
-            # all_cvae_dec_traj[:,enc_step,:,:,:] = self.cvae_decoder(cvae_dec_hidden, goal_for_dec)
-            
-        # convert bbox to ctr
-        # all_goal_traj = all_goal_traj[..., :2] + (all_goal_traj[..., 2:] - all_goal_traj[..., :2])/2
-        # all_cvae_dec_traj = all_cvae_dec_traj[..., :2] + (all_cvae_dec_traj[..., 2:] - all_cvae_dec_traj[..., :2])/2
             
         return all_goal_traj, all_cvae_dec_traj, total_KLD, total_probabilities
     
-    def forward(self, inputs, input_angle, input_pose, map_mask=None, targets = None, start_index = 0, training=True):  
-    # def forward(self, inputs, input_angle, map_mask=None, targets = None, start_index = 0, training=True):    
-    # def forward(self, inputs, input_pose, map_mask=None, targets = None, start_index = 0, training=True):
-    # def forward(self, inputs, map_mask=None, targets = None, start_index = 0, training=True):
+    def forward(self, inputs, input_angle, input_skeleton, map_mask=None, targets = None, start_index = 0, training=True):  
         self.training = training
         if torch.is_tensor(start_index):
             start_index = start_index[0].item()
         if self.dataset in ['JAAD','PIE']:
             traj_input = self.feature_extractor(inputs)
             
-            # traj_pose_input = input_pose.flatten(start_dim=2)
-            traj_pose_input = input_angle
+            # skeleton data is [13, 2], need [26, 1]
+            if self.pose_data == 'skeleton':
+                traj_pose_input = input_skeleton.flatten(start_dim=2)
+                
             traj_pose_input = self.pose_feature_extractor(traj_pose_input)
-            traj_pose_input = self.addl_process(traj_pose_input)
-            # traj_pose_input = self.addl_drop(traj_pose_input)
-            # traj_input = torch.cat((traj_input, traj_pose_input), dim=-1)
+            traj_pose_input = self.addl_drop(traj_pose_input)
             
-            # traj_angle_input = self.angle_feature_extractor(input_angle)
-            # traj_angle_input = self.addl_process_2(traj_angle_input)
-            # traj_input = torch.cat((traj_input, traj_angle_input), dim=-1)
-
-            # all_goal_traj, all_cvae_dec_traj, KLD, total_probabilities = self.encoder(inputs, targets, traj_input, traj_angle_input, traj_pose_input)
-            # all_goal_traj, all_cvae_dec_traj, KLD, total_probabilities = self.encoder(inputs, targets, traj_input, traj_angle_input)
             all_goal_traj, all_cvae_dec_traj, KLD, total_probabilities = self.encoder(inputs, targets, traj_input, traj_pose_input)
-            # all_goal_traj, all_cvae_dec_traj, KLD, total_probabilities = self.encoder(inputs, targets, traj_input)
+
             return all_goal_traj, all_cvae_dec_traj, KLD, total_probabilities
         elif self.dataset in ['ETH', 'HOTEL','UNIV','ZARA1', 'ZARA2']:
             traj_input_temp = self.feature_extractor(inputs[:,start_index:,:])

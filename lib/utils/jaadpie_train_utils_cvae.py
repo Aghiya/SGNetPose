@@ -25,13 +25,10 @@ def train(model, train_gen, criterion, optimizer, device):
             batch_size = data['input_x'].shape[0]
             input_traj = data['input_x'].to(device)
             target_traj = data['target_y'].to(device)
-            input_pose = data['input_x_pose'].to(device)
+            input_skeleton = data['input_x_skeleton'].to(device)
             input_angle = data['input_x_angle'].to(device)
             
-            all_goal_traj, cvae_dec_traj, KLD_loss, _  = model(inputs=input_traj, input_angle=input_angle, input_pose=input_pose, map_mask=None, targets=target_traj)
-            # all_goal_traj, cvae_dec_traj, KLD_loss, _  = model(inputs=input_traj, input_angle=input_angle, map_mask=None, targets=target_traj)
-            # all_goal_traj, cvae_dec_traj, KLD_loss, _  = model(inputs=input_traj, input_pose=input_pose, map_mask=None, targets=target_traj)
-            # all_goal_traj, cvae_dec_traj, KLD_loss, _  = model(inputs=input_traj, map_mask=None, targets=target_traj)
+            all_goal_traj, cvae_dec_traj, KLD_loss, _  = model(inputs=input_traj, input_angle=input_angle, input_skeleton=input_skeleton, map_mask=None, targets=target_traj)
             cvae_loss = cvae_multi(cvae_dec_traj,target_traj)
             goal_loss = criterion(all_goal_traj, target_traj)
 
@@ -64,13 +61,10 @@ def val(model, val_gen, criterion, device):
             batch_size = data['input_x'].shape[0]
             input_traj = data['input_x'].to(device)
             target_traj = data['target_y'].to(device)
-            input_pose = data['input_x_pose'].to(device)
+            input_skeleton = data['input_x_skeleton'].to(device)
             input_angle = data['input_x_angle'].to(device)
             
-            all_goal_traj, cvae_dec_traj, KLD_loss, _  = model(inputs=input_traj, input_angle=input_angle, input_pose=input_pose, map_mask=None, targets=target_traj)
-            # all_goal_traj, cvae_dec_traj, KLD_loss, _  = model(inputs=input_traj, input_angle=input_angle, map_mask=None, targets=target_traj)
-            # all_goal_traj, cvae_dec_traj, KLD_loss, _  = model(inputs=input_traj, input_pose=input_pose, map_mask=None, targets=target_traj)
-            # all_goal_traj, cvae_dec_traj, KLD_loss, _ = model(inputs=input_traj, map_mask=None, targets=None,training=False)
+            all_goal_traj, cvae_dec_traj, KLD_loss, _  = model(inputs=input_traj, input_angle=input_angle, input_skeleton=input_skeleton, map_mask=None, targets=target_traj)
             cvae_loss = cvae_multi(cvae_dec_traj,target_traj)
             
 
@@ -105,13 +99,10 @@ def test(model, test_gen, criterion, device):
             batch_size = data['input_x'].shape[0]
             input_traj = data['input_x'].to(device)
             target_traj = data['target_y'].to(device)
-            input_pose = data['input_x_pose'].to(device)
+            input_skeleton = data['input_x_skeleton'].to(device)
             input_angle = data['input_x_angle'].to(device)
             
-            all_goal_traj, cvae_dec_traj, KLD_loss, _  = model(inputs=input_traj, input_angle=input_angle, input_pose=input_pose, map_mask=None, targets=target_traj)
-            # all_goal_traj, cvae_dec_traj, KLD_loss, _  = model(inputs=input_traj, input_angle=input_angle, map_mask=None, targets=target_traj)
-            # all_goal_traj, cvae_dec_traj, KLD_loss, _  = model(inputs=input_traj, input_pose=input_pose, map_mask=None, targets=target_traj)
-            # all_goal_traj, cvae_dec_traj, KLD_loss, _ = model(inputs=input_traj, map_mask=None, targets=None, training=False)
+            all_goal_traj, cvae_dec_traj, KLD_loss, _  = model(inputs=input_traj, input_angle=input_angle, input_skeleton=input_skeleton, map_mask=None, targets=target_traj)
             cvae_loss = cvae_multi(cvae_dec_traj,target_traj)
 
 

@@ -4,26 +4,18 @@ from torchvision import datasets, transforms, models
 import torch.nn.functional as F
 
 
-class JAADAngleFeatureExtractor(nn.Module):
+class PoseFeatureExtractor(nn.Module):
 
     def __init__(self, args):
-        super(JAADAngleFeatureExtractor, self).__init__()
-        self.embbed_size = args.hidden_size
-        self.pose_embed = nn.Sequential(nn.Linear(12, self.embbed_size), 
-                                        nn.ReLU())
-    def forward(self, inputs):
-        pose_inputs = inputs
-        embedded_pose_input= self.pose_embed(pose_inputs)
-
-        return embedded_pose_input
-
-class JAADPoseFeatureExtractor(nn.Module):
-
-    def __init__(self, args):
-        super(JAADPoseFeatureExtractor, self).__init__()
+        super(PoseFeatureExtractor, self).__init__()
+        # We want 128 element embedding
         self.embbed_size = args.hidden_size//4
-        self.pose_embed = nn.Sequential(nn.Linear(12, self.embbed_size), 
-                                        nn.ReLU()) 
+        if args.pose_data == 'skeleton':
+            self.pose_embed = nn.Sequential(nn.Linear(26, self.embbed_size), 
+                                            nn.ReLU())
+        else:
+            self.pose_embed = nn.Sequential(nn.Linear(12, self.embbed_size), 
+                                            nn.ReLU())
     def forward(self, inputs):
         pose_inputs = inputs
         embedded_pose_input= self.pose_embed(pose_inputs)

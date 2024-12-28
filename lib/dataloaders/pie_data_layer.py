@@ -50,11 +50,11 @@ class PIEDataLayer(data.Dataset):
         pred_bbox = torch.FloatTensor(self.data['pred_bbox'][index])
         cur_image_file = self.data['obs_image'][index][-1]
 
-        obs_pose = torch.FloatTensor(self.data['obs_pose'][index])
+        obs_skeleton = torch.FloatTensor(self.data['obs_skeleton'][index])
         obs_angle = torch.FloatTensor(self.data['obs_angle'][index])
 
         ret = {'input_x':obs_bbox,
-               'input_x_pose':obs_pose,
+               'input_x_skeleton':obs_skeleton,
                'input_x_angle':obs_angle,
                'target_y':pred_bbox, 
                'cur_image_file':cur_image_file}
@@ -97,7 +97,7 @@ class PIEDataLayer(data.Dataset):
         d['pid'] = dataset['pid']
         d['resolution'] = dataset['resolution']
         d['flow'] = []
-        d['pose'] = dataset['pose']
+        d['skeleton'] = dataset['skeleton']
         d['angle'] = dataset['angle']
         num_trks = len(d['image'])
         #  Sample tracks from sequneces
@@ -211,7 +211,7 @@ class PIEDataLayer(data.Dataset):
         ret =  {'obs_image': obs_slices['image'],
                 'obs_pid': obs_slices['pid'],
                 'obs_resolution': obs_slices['resolution'],
-                'obs_pose': obs_slices['pose'],
+                'obs_skeleton': obs_slices['skeleton'],
                 'obs_angle': obs_slices['angle'],
                 'pred_image': pred_slices['image'],
                 'pred_pid': pred_slices['pid'],

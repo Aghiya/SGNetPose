@@ -52,7 +52,7 @@ class JAADDataLayer(data.Dataset):
         gt_std = torch.FloatTensor(self.data['gt_std'][index])
         cur_image_file = self.data['obs_image'][index][-1]
         
-        obs_pose = torch.FloatTensor(self.data['obs_pose'][index])
+        obs_skeleton = torch.FloatTensor(self.data['obs_skeleton'][index])
         obs_angle = torch.FloatTensor(self.data['obs_angle'][index])
         
         obs_bbox_unnormed = torch.FloatTensor(self.data['obs_bbox_unnormed'][index])
@@ -62,7 +62,7 @@ class JAADDataLayer(data.Dataset):
         ret = {'input_x':obs_bbox,
                'target_y':pred_bbox,
                'unnormed':obs_bbox_unnormed,
-               'input_x_pose':obs_pose,
+               'input_x_skeleton':obs_skeleton,
                'input_x_angle':obs_angle,
                'cur_image_file':cur_image_file, 
                'gt_mean':gt_mean, 
@@ -106,7 +106,7 @@ class JAADDataLayer(data.Dataset):
         d['pid'] = dataset['pid']
         d['resolution'] = dataset['resolution']
         d['flow'] = []
-        d['pose'] = dataset['pose']
+        d['skeleton'] = dataset['skeleton']
         d['angle'] = dataset['angle']
         
         #  Sample tracks from sequneces
@@ -245,7 +245,7 @@ class JAADDataLayer(data.Dataset):
                 
         ret =  {'obs_image': obs_slices['image'],
                 'obs_pid': obs_slices['pid'],
-                'obs_pose': obs_slices['pose'],
+                'obs_skeleton': obs_slices['skeleton'],
                 'obs_angle': obs_slices['angle'],
                 'gt_mean': obs_slices['gt_mean'],
                 'gt_std': obs_slices['gt_std'],
